@@ -41,3 +41,13 @@ example
 # generated native folders
 /ios
 /android
+
+# session/install scratch
+.install-*.log
+.prebuild.log
+.supabase-start.log
+.claude/scheduled_tasks.lock
+
+# supabase local stack state (temp images, db dumps)
+supabase/.temp/
+supabase/.branches/

@@ -8,7 +8,8 @@
     "scheme": "twin",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.anonymous.twin"
     },
     "android": {
       "adaptiveIcon": {
@@ -17,7 +18,8 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.anonymous.twin"
     },
     "web": {
       "output": "static",
@@ -33,6 +35,39 @@
             "image": "./assets/images/splash-icon.png",
             "imageWidth": 76
           }
+        }
+      ],
+      [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "name": "Twin",
+              "label": "Twin",
+              "description": "A quiet glance at your person.",
+              "minWidth": "180dp",
+              "minHeight": "180dp",
+              "targetCellWidth": 2,
+              "targetCellHeight": 2,
+              "maxResizeWidth": "320dp",
+              "maxResizeHeight": "320dp",
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000
+            }
+          ]
+        }
+      ],
+      [
+        "expo-widgets",
+        {
+          "widgets": [
+            {
+              "name": "Twin",
+              "displayName": "Twin",
+              "description": "A quiet glance at your person.",
+              "supportedFamilies": ["systemSmall", "systemMedium"]
+            }
+          ]
         }
       ]
     ],
