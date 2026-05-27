@@ -124,7 +124,14 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  paletteRow: { flexDirection: 'row', gap: 16, marginTop: 12 },
+  paletteRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 16,
+    marginTop: 12,
+    maxWidth: 280,
+  },
   swatch: { width: 48, height: 48, borderRadius: 24, borderWidth: 2 },
   cta: {
     alignSelf: 'center',

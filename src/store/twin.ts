@@ -17,6 +17,7 @@ import { syncWidget } from '@/widgets/sync';
 const K_SELF = 'self';
 const K_CONNECTION = 'connection';
 const K_OWN_PRESENCE = 'ownPresence';
+const K_PUSH_OPTED_IN = 'pushOptedIn';
 const K_WIDGET_SNAPSHOT = 'snapshot';
 
 const blankPresence = (): PresenceState => ({
@@ -33,6 +34,7 @@ type TwinState = {
   ownPresence: PresenceState;
   connection: Connection | null;
   incomingPulseAt: number | null;
+  pushOptedIn: boolean;
 
   hydrate: () => void;
   createSelf: (name: string | null, palette: PaletteId) => void;
@@ -41,6 +43,7 @@ type TwinState = {
   setCustomText: (t: string | null) => void;
   setPalette: (p: PaletteId) => void;
   setDisplayName: (name: string | null) => void;
+  setPushOptedIn: (v: boolean) => void;
   acceptIncomingPresence: (p: PresenceState) => void;
   receiveIncomingPulse: () => void;
   setConnection: (c: Connection | null) => void;
@@ -58,12 +61,14 @@ export const useTwin = create<TwinState>()(
     ownPresence: blankPresence(),
     connection: null,
     incomingPulseAt: null,
+    pushOptedIn: false,
 
     hydrate() {
       const self = readJSON<SelfProfile | null>(storage, K_SELF, null);
       const own = readJSON<PresenceState>(storage, K_OWN_PRESENCE, blankPresence());
       const conn = readJSON<Connection | null>(storage, K_CONNECTION, null);
-      set({ self, ownPresence: own, connection: conn, hydrated: true });
+      const pushOptedIn = readJSON<boolean>(storage, K_PUSH_OPTED_IN, false);
+      set({ self, ownPresence: own, connection: conn, pushOptedIn, hydrated: true });
       pushWidget(get());
     },
 
@@ -113,6 +118,11 @@ export const useTwin = create<TwinState>()(
       writeJSON(storage, K_SELF, next);
       set({ self: next });
       pushWidget(get());
+    },
+
+    setPushOptedIn(v) {
+      writeJSON(storage, K_PUSH_OPTED_IN, v);
+      set({ pushOptedIn: v });
     },
 
     acceptIncomingPresence(p) {

@@ -3,12 +3,14 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { configureForegroundHandler } from '@/services/push';
 import { startSync } from '@/store/sync';
 import { useTwin } from '@/store/twin';
 
 export default function RootLayout() {
   const hydrate = useTwin((s) => s.hydrate);
   useEffect(() => {
+    configureForegroundHandler();
     hydrate();
     void startSync();
   }, [hydrate]);

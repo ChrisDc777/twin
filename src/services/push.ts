@@ -53,6 +53,17 @@ export async function registerPushToken(): Promise<string | null> {
   return token;
 }
 
+// Remove the current device's push token from the server. Idempotent.
+export async function unregisterPushToken(): Promise<void> {
+  const userId = await currentUserId();
+  if (!userId) return;
+  await supabase
+    .from('device_tokens')
+    .delete()
+    .eq('user_id', userId)
+    .eq('device_id', deviceId());
+}
+
 // Best-effort dispatch through the notify_partner edge function.
 // Use sparingly — Twin's brand is anti-notification. Pulses only for now.
 export async function notifyPartner(partnerId: string, kind: 'pulse'): Promise<void> {
