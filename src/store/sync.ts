@@ -1,3 +1,5 @@
+import { AppState, type AppStateStatus } from 'react-native';
+
 import {
   clearAllPartnerKeys,
   forgetPartnerKey,
@@ -28,10 +30,26 @@ let unsubPulses: (() => void) | null = null;
 let unsubConnections: (() => void) | null = null;
 let unsubOwnPresence: (() => void) | null = null;
 let unsubSelf: (() => void) | null = null;
+let appStateSub: { remove: () => void } | null = null;
 
 // Current partner id, used by ownPresence subscriber to know whom to
 // encrypt for. Synced with the store's connection.partner.id.
 let currentPartnerId: string | null = null;
+
+// True when the most recent own-presence write failed (offline, etc.).
+// Presence is a snapshot, not a log — a single retry slot is enough:
+// only the latest state matters.
+let pendingOwnWrite = false;
+
+async function pushOwnPresence(): Promise<void> {
+  const own = useTwin.getState().ownPresence;
+  try {
+    await writeOwnPresence(own, currentPartnerId);
+    pendingOwnWrite = false;
+  } catch {
+    pendingOwnWrite = true;
+  }
+}
 
 export async function startSync(): Promise<void> {
   if (started) return;
@@ -44,10 +62,18 @@ export async function startSync(): Promise<void> {
 
     unsubOwnPresence = useTwin.subscribe(
       (s) => s.ownPresence,
-      (own) => {
-        void writeOwnPresence(own, currentPartnerId).catch(() => {});
+      () => {
+        void pushOwnPresence();
       },
     );
+
+    // Replay a failed presence write when the app comes back to the
+    // foreground (the most common "back online" moment on mobile).
+    appStateSub = AppState.addEventListener('change', (next: AppStateStatus) => {
+      if (next === 'active' && pendingOwnWrite) {
+        void pushOwnPresence();
+      }
+    });
 
     unsubSelf = useTwin.subscribe(
       (s) => s.self,
@@ -89,8 +115,7 @@ export async function syncFromCloud(): Promise<void> {
     }
     teardownPartnerSubs();
     // No partner — push our presence as plaintext (only we can read it).
-    const ownPresence = useTwin.getState().ownPresence;
-    await writeOwnPresence(ownPresence, null).catch(() => {});
+    await pushOwnPresence();
     return;
   }
 
@@ -110,8 +135,7 @@ export async function syncFromCloud(): Promise<void> {
   currentPartnerId = partnerId;
 
   // Now safe to push our presence encrypted.
-  const ownPresence = useTwin.getState().ownPresence;
-  await writeOwnPresence(ownPresence, partnerId).catch(() => {});
+  await pushOwnPresence();
 
   const remote: Connection = {
     id: conn.id,
@@ -150,8 +174,12 @@ export async function syncFromCloud(): Promise<void> {
     });
   });
 
-  unsubPulses = subscribePulses(conn.id, () => {
-    useTwin.getState().receiveIncomingPulse();
+  unsubPulses = subscribePulses(conn.id, (fromUserId) => {
+    // Realtime echoes our own inserts back to us — only a pulse from the
+    // partner should make the glow fire.
+    if (fromUserId === partnerId) {
+      useTwin.getState().receiveIncomingPulse();
+    }
   });
 }
 
@@ -170,7 +198,10 @@ export function stopSync(): void {
   unsubOwnPresence = null;
   unsubSelf?.();
   unsubSelf = null;
+  appStateSub?.remove();
+  appStateSub = null;
   clearAllPartnerKeys();
   currentPartnerId = null;
+  pendingOwnWrite = false;
   started = false;
 }

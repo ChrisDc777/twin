@@ -6,7 +6,7 @@ import { StateBlob } from '@/components/twin/state-blob';
 import { ThemedText } from '@/components/themed-text';
 import { PALETTES } from '@/domain/palettes';
 import { VISIBILITY } from '@/domain/states';
-import { ageOpacity, softRelative } from '@/lib/time';
+import { ageOpacity, effectivePresence, softRelative } from '@/lib/time';
 import type { PaletteId, PresenceState } from '@/domain/types';
 
 type Props = {
@@ -23,13 +23,14 @@ type Props = {
 export function TwinCard({
   who,
   palette,
-  presence,
+  presence: rawPresence,
   onPress,
   onLongPress,
   showStaleness,
   pulseTrigger,
   size = 'large',
 }: Props) {
+  const presence = effectivePresence(rawPresence);
   const meta = VISIBILITY[presence.visibility];
   const p = PALETTES[palette];
   const blobSize = size === 'large' ? 200 : 140;

@@ -1,3 +1,15 @@
+import type { PresenceState } from '@/domain/types';
+
+// Apply note expiry: a presence whose expiresAt has passed renders without
+// its custom text (the note "fades"). Visibility and mood are not auto-
+// cleared — only the note is ephemeral.
+export function effectivePresence(p: PresenceState, now: number = Date.now()): PresenceState {
+  if (p.customText && p.expiresAt && now > p.expiresAt) {
+    return { ...p, customText: null, expiresAt: null };
+  }
+  return p;
+}
+
 // Continuous opacity factor for the "blob" based on how stale a state is.
 // Encodes Twin's design intent: older states quietly recede, never disappear.
 export function ageOpacity(setAt: number, now: number = Date.now()): number {

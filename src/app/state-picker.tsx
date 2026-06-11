@@ -16,8 +16,18 @@ export default function StatePicker() {
   const setVisibility = useTwin((s) => s.setVisibility);
   const setMood = useTwin((s) => s.setMood);
   const setCustomText = useTwin((s) => s.setCustomText);
+  const setNoteExpiry = useTwin((s) => s.setNoteExpiry);
 
   const [text, setText] = useState(ownPresence.customText ?? '');
+
+  const HOUR = 60 * 60 * 1000;
+  // Map the stored absolute expiry back to the chip that produced it.
+  const activeExpiry: 'keep' | '1h' | '8h' =
+    ownPresence.expiresAt == null
+      ? 'keep'
+      : ownPresence.expiresAt - Date.now() <= 1.5 * HOUR
+        ? '1h'
+        : '8h';
 
   if (!self) return null;
   const p = PALETTES[self.palette];
@@ -104,6 +114,42 @@ export default function StatePicker() {
             maxLength={30}
             style={[styles.input, { color: p.text, borderColor: p.textMuted }]}
           />
+
+          {text.length > 0 ? (
+            <>
+              <ThemedText style={[styles.section, { color: p.textMuted }]}>Note fades</ThemedText>
+              <View style={styles.row}>
+                {(
+                  [
+                    { id: 'keep' as const, label: 'When I change it', expiry: null },
+                    { id: '1h' as const, label: 'In an hour', expiry: HOUR },
+                    { id: '8h' as const, label: 'Later today', expiry: 8 * HOUR },
+                  ]
+                ).map((opt) => {
+                  const active = activeExpiry === opt.id;
+                  return (
+                    <Pressable
+                      key={opt.id}
+                      onPress={() =>
+                        setNoteExpiry(opt.expiry == null ? null : Date.now() + opt.expiry)
+                      }
+                      style={[
+                        styles.pill,
+                        {
+                          borderColor: active ? p.accent : 'rgba(255,255,255,0.1)',
+                          backgroundColor: active ? 'rgba(255,255,255,0.04)' : 'transparent',
+                        },
+                      ]}
+                    >
+                      <ThemedText style={{ color: active ? p.accent : p.text }}>
+                        {opt.label}
+                      </ThemedText>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </>
+          ) : null}
         </ScrollView>
       </SafeAreaView>
     </LinearGradient>

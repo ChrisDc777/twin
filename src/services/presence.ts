@@ -105,7 +105,7 @@ export async function sendPulse(connectionId: string): Promise<void> {
 
 export function subscribePulses(
   connectionId: string,
-  onPulse: () => void,
+  onPulse: (fromUserId: string) => void,
 ): () => void {
   const channel = supabase
     .channel(`reactions:${connectionId}`)
@@ -117,7 +117,10 @@ export function subscribePulses(
         table: 'reactions',
         filter: `connection_id=eq.${connectionId}`,
       },
-      () => onPulse(),
+      (payload) => {
+        const fromUser = (payload.new as { from_user?: string })?.from_user;
+        if (fromUser) onPulse(fromUser);
+      },
     )
     .subscribe();
   return () => {

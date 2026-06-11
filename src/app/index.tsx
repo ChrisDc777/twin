@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -21,10 +22,19 @@ export default function Home() {
   const incomingPulseAt = useTwin((s) => s.incomingPulseAt);
   const devFakePair = useTwin((s) => s.devFakePair);
 
+  const lastPulseSentAt = useRef(0);
+
   useEffect(() => {
     if (!hydrated) return;
     if (!self) router.replace('/onboarding');
   }, [hydrated, self, router]);
+
+  // A soft haptic when the partner reaches — the glow is the visual,
+  // this is the touch. No banner, no sound.
+  useEffect(() => {
+    if (incomingPulseAt == null) return;
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, [incomingPulseAt]);
 
   if (!self) return null;
 
@@ -34,6 +44,10 @@ export default function Home() {
 
   const onLongPressPartner = () => {
     if (!connection) return;
+    // Rate-limit: one pulse per 30s. Quiet things shouldn't be spammable.
+    const now = Date.now();
+    if (now - lastPulseSentAt.current < 30_000) return;
+    lastPulseSentAt.current = now;
     if (isSupabaseConfigured()) {
       void sendPulse(connection.id).catch(() => {});
       void notifyPartner(connection.partner.id, 'pulse').catch(() => {});

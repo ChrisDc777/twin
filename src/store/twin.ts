@@ -12,13 +12,14 @@ import type {
 } from '@/domain/types';
 import { newId } from '@/lib/ids';
 import { readJSON, storage, widgetStorage, writeJSON } from '@/lib/storage';
+import { effectivePresence } from '@/lib/time';
 import { syncWidget } from '@/widgets/sync';
+import { SNAPSHOT_KEY } from '@/widgets/widget-snapshot';
 
 const K_SELF = 'self';
 const K_CONNECTION = 'connection';
 const K_OWN_PRESENCE = 'ownPresence';
 const K_PUSH_OPTED_IN = 'pushOptedIn';
-const K_WIDGET_SNAPSHOT = 'snapshot';
 
 const blankPresence = (): PresenceState => ({
   visibility: 'visible',
@@ -41,13 +42,17 @@ type TwinState = {
   setVisibility: (v: VisibilityId) => void;
   setMood: (m: Mood | null) => void;
   setCustomText: (t: string | null) => void;
+  setNoteExpiry: (expiresAt: number | null) => void;
   setPalette: (p: PaletteId) => void;
   setDisplayName: (name: string | null) => void;
   setPushOptedIn: (v: boolean) => void;
-  acceptIncomingPresence: (p: PresenceState) => void;
   receiveIncomingPulse: () => void;
   setConnection: (c: Connection | null) => void;
   disconnect: () => void;
+  // Full local wipe — used by account deletion. Clears both MMKV
+  // instances (including crypto keys and the auth session) and returns
+  // the store to its pre-onboarding state.
+  resetAll: () => void;
 
   // Dev helper — fakes a paired partner so we can develop the paired UI
   // before the backend is wired up.
@@ -95,7 +100,21 @@ export const useTwin = create<TwinState>()(
 
     setCustomText(t) {
       const trimmed = t == null ? null : t.slice(0, 30);
-      const next = { ...get().ownPresence, customText: trimmed, setAt: Date.now() };
+      const prev = get().ownPresence;
+      const next = {
+        ...prev,
+        customText: trimmed,
+        // Clearing the note also clears any pending expiry.
+        expiresAt: trimmed == null ? null : prev.expiresAt,
+        setAt: Date.now(),
+      };
+      writeJSON(storage, K_OWN_PRESENCE, next);
+      set({ ownPresence: next });
+      pushWidget(get());
+    },
+
+    setNoteExpiry(expiresAt) {
+      const next = { ...get().ownPresence, expiresAt };
       writeJSON(storage, K_OWN_PRESENCE, next);
       set({ ownPresence: next });
       pushWidget(get());
@@ -125,18 +144,6 @@ export const useTwin = create<TwinState>()(
       set({ pushOptedIn: v });
     },
 
-    acceptIncomingPresence(p) {
-      const conn = get().connection;
-      if (!conn) return;
-      const next: Connection = {
-        ...conn,
-        partner: { ...conn.partner, presence: p, lastSeenAt: Date.now() },
-      };
-      writeJSON(storage, K_CONNECTION, next);
-      set({ connection: next });
-      pushWidget(get());
-    },
-
     receiveIncomingPulse() {
       set({ incomingPulseAt: Date.now() });
     },
@@ -154,6 +161,20 @@ export const useTwin = create<TwinState>()(
     disconnect() {
       storage.remove(K_CONNECTION);
       set({ connection: null });
+      pushWidget(get());
+    },
+
+    resetAll() {
+      storage.clearAll();
+      widgetStorage.clearAll();
+      set({
+        self: null,
+        ownPresence: blankPresence(),
+        connection: null,
+        incomingPulseAt: null,
+        pushOptedIn: false,
+        hydrated: true,
+      });
       pushWidget(get());
     },
 
@@ -185,17 +206,17 @@ export const useTwin = create<TwinState>()(
 function pushWidget(state: TwinState) {
   const snapshot: WidgetSnapshot = {
     self: state.self ? { name: state.self.displayName, palette: state.self.palette } : null,
-    own: state.ownPresence,
+    own: effectivePresence(state.ownPresence),
     partner: state.connection
       ? {
           name: state.connection.partner.displayName,
           palette: state.connection.palette,
-          presence: state.connection.partner.presence,
+          presence: effectivePresence(state.connection.partner.presence),
         }
       : null,
     updatedAt: Date.now(),
   };
-  writeJSON(widgetStorage, K_WIDGET_SNAPSHOT, snapshot);
+  writeJSON(widgetStorage, SNAPSHOT_KEY, snapshot);
   // Fire-and-forget; the helper is a platform-specific no-op on iOS.
   void syncWidget();
 }

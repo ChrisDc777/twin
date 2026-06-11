@@ -12,6 +12,7 @@ import { setPendingInvite } from '@/lib/pending-invite';
 import { getMyPublicKey } from '@/lib/crypto';
 import { ensureAnonymousAuth } from '@/services/auth';
 import { acceptInvite, createInvite, previewInvite } from '@/services/connection';
+import { registerPushToken } from '@/services/push';
 import { syncFromCloud } from '@/store/sync';
 import { useTwin } from '@/store/twin';
 
@@ -145,9 +146,11 @@ function AcceptInvite({
   paletteMuted,
 }: AcceptInviteProps) {
   const router = useRouter();
+  const setPushOptedIn = useTwin((s) => s.setPushOptedIn);
   const [state, setState] = useState<'loading' | 'preview' | 'accepted' | 'error'>('loading');
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ displayName: string | null } | null>(null);
+  const [pulseBusy, setPulseBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -187,11 +190,28 @@ function AcceptInvite({
     try {
       await acceptInvite(token);
       await syncFromCloud();
+      // No auto-redirect: the accepted view asks the one-time pulse
+      // question, then routes home.
       setState('accepted');
-      setTimeout(() => router.replace('/'), 600);
     } catch (e) {
       setError((e as Error)?.message ?? 'Could not accept invite.');
       setState('error');
+    }
+  };
+
+  const answerPulsePrompt = async (allow: boolean) => {
+    if (pulseBusy) return;
+    setPulseBusy(true);
+    try {
+      if (allow) {
+        setPushOptedIn(true);
+        const pushToken = await registerPushToken();
+        if (!pushToken) setPushOptedIn(false);
+      } else {
+        setPushOptedIn(false);
+      }
+    } finally {
+      router.replace('/');
     }
   };
 
@@ -228,9 +248,32 @@ function AcceptInvite({
           ) : null}
 
           {state === 'accepted' ? (
-            <ThemedText type="subtitle" style={{ color: paletteText, textAlign: 'center' }}>
-              Connected.
-            </ThemedText>
+            <>
+              <ThemedText type="subtitle" style={{ color: paletteText, textAlign: 'center' }}>
+                Connected.
+              </ThemedText>
+              <ThemedText
+                style={{
+                  color: paletteMuted,
+                  marginTop: 8,
+                  maxWidth: 300,
+                  textAlign: 'center',
+                }}
+              >
+                Want a soft tap when {preview?.displayName ?? 'they'} reaches? No banners, no
+                sounds — just a quiet pulse.
+              </ThemedText>
+              <Pressable
+                style={[styles.cta, { borderColor: paletteAccent, marginTop: 16, opacity: pulseBusy ? 0.5 : 1 }]}
+                disabled={pulseBusy}
+                onPress={() => answerPulsePrompt(true)}
+              >
+                <ThemedText style={{ color: paletteAccent }}>Allow</ThemedText>
+              </Pressable>
+              <Pressable disabled={pulseBusy} onPress={() => answerPulsePrompt(false)}>
+                <ThemedText style={{ color: paletteMuted }}>Not now</ThemedText>
+              </Pressable>
+            </>
           ) : null}
 
           {state === 'error' ? (

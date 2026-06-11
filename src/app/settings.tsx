@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
+import { Pressable, Share, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -7,27 +7,65 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { PALETTES, PALETTE_ORDER } from '@/domain/palettes';
 import { isSupabaseConfigured } from '@/lib/supabase';
+import { deleteAccount } from '@/services/auth';
 import { deleteConnection } from '@/services/connection';
 import { registerPushToken, unregisterPushToken } from '@/services/push';
+import { stopSync } from '@/store/sync';
 import { useTwin } from '@/store/twin';
 
 export default function Settings() {
   const router = useRouter();
   const self = useTwin((s) => s.self);
+  const ownPresence = useTwin((s) => s.ownPresence);
   const connection = useTwin((s) => s.connection);
   const pushOptedIn = useTwin((s) => s.pushOptedIn);
   const setPalette = useTwin((s) => s.setPalette);
   const setDisplayName = useTwin((s) => s.setDisplayName);
   const setPushOptedIn = useTwin((s) => s.setPushOptedIn);
   const disconnect = useTwin((s) => s.disconnect);
+  const resetAll = useTwin((s) => s.resetAll);
 
   const [draftName, setDraftName] = useState(self?.displayName ?? '');
   const [pushBusy, setPushBusy] = useState(false);
+  const [deleteArmed, setDeleteArmed] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   if (!self) return null;
   const p = PALETTES[self.palette];
 
   const commitName = () => setDisplayName(draftName);
+
+  const exportData = () => {
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      profile: { displayName: self?.displayName ?? null, palette: self?.palette },
+      presence: ownPresence,
+      connection: connection
+        ? { pairedAt: new Date(connection.pairedAt).toISOString(), palette: connection.palette }
+        : null,
+      note: 'Twin stores your note end-to-end encrypted; no history is kept server-side.',
+    };
+    void Share.share({ message: JSON.stringify(payload, null, 2) });
+  };
+
+  const onDeletePress = async () => {
+    if (!deleteArmed) {
+      setDeleteArmed(true);
+      return;
+    }
+    if (deleteBusy) return;
+    setDeleteBusy(true);
+    try {
+      stopSync();
+      if (isSupabaseConfigured()) {
+        await deleteAccount().catch(() => {});
+      }
+      resetAll();
+      router.replace('/onboarding');
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
 
   const togglePush = async (next: boolean) => {
     if (pushBusy) return;
@@ -128,6 +166,26 @@ export default function Settings() {
             </Pressable>
           ) : null}
 
+          <ThemedText style={[styles.section, { color: p.textMuted }]}>Your data</ThemedText>
+          <View style={styles.dataRow}>
+            <Pressable style={[styles.subtle]} onPress={exportData}>
+              <ThemedText style={{ color: p.textMuted }}>Download my data</ThemedText>
+            </Pressable>
+            <Pressable
+              style={[styles.subtle, deleteArmed && { borderColor: 'rgba(255,80,80,0.5)', borderWidth: StyleSheet.hairlineWidth, borderRadius: 999 }]}
+              onPress={onDeletePress}
+              disabled={deleteBusy}
+            >
+              <ThemedText style={{ color: deleteArmed ? '#ff8b8b' : p.textMuted }}>
+                {deleteBusy
+                  ? 'Deleting…'
+                  : deleteArmed
+                    ? 'Tap again to delete everything'
+                    : 'Delete my Twin account'}
+              </ThemedText>
+            </Pressable>
+          </View>
+
           <View style={{ flex: 1 }} />
           <ThemedText
             type="small"
@@ -172,4 +230,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     alignSelf: 'flex-start',
   },
+  dataRow: { marginTop: 12, gap: 12, alignItems: 'flex-start' },
+  subtle: { paddingVertical: 8, paddingHorizontal: 12 },
 });

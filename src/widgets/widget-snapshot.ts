@@ -1,5 +1,6 @@
 import type { WidgetSnapshot } from '@/domain/types';
 import { readJSON, widgetStorage } from '@/lib/storage';
+import { effectivePresence } from '@/lib/time';
 
 export const SNAPSHOT_KEY = 'snapshot';
 
@@ -16,6 +17,16 @@ const EMPTY: WidgetSnapshot = {
   updatedAt: 0,
 };
 
+// Single read path for both platform widgets. Expiry is applied at read
+// time so a note that lapsed between snapshot-write and widget-refresh
+// still fades correctly.
 export function readWidgetSnapshot(): WidgetSnapshot {
-  return readJSON<WidgetSnapshot>(widgetStorage, SNAPSHOT_KEY, EMPTY);
+  const raw = readJSON<WidgetSnapshot>(widgetStorage, SNAPSHOT_KEY, EMPTY);
+  return {
+    ...raw,
+    own: effectivePresence(raw.own),
+    partner: raw.partner
+      ? { ...raw.partner, presence: effectivePresence(raw.partner.presence) }
+      : null,
+  };
 }
