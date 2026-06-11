@@ -169,8 +169,13 @@ Custom-text encryption: A and B publish x25519 public keys in `profiles`. On pai
 - Anonymous auth + profile + connection + presence + pulses + invites RLS-enforced
 - Realtime presence + pulse subscriptions (in-app, no FCM needed when foregrounded)
 - E2E encryption on `custom_text` with `enc:` prefix
-- Push for pulses via Expo Push API (no FCM/APNs creds required)
+- Push for pulses via Expo Push API (no FCM/APNs creds required), opt-in via Settings toggle or the one-time post-pair prompt
+- Disappearing notes — optional expiry (1h / 8h) set in the state picker, enforced at render on app and both widgets
+- Pulses rate-limited (1 per 30s) with a light haptic on receive; sender's own realtime echo filtered out
+- Offline presence writes retry on app-foreground instead of silently dropping
+- Account deletion (two-tap, RPC verified end-to-end locally) + JSON data export via share sheet
 - Android prebuild succeeds — `widgetprovider_twin.xml` and AppWidgetProvider receiver land cleanly in the generated manifest
+- CI on GitHub Actions: type-check + Android prebuild validation per push/PR
 
 ### Verified via REST
 ```
@@ -184,10 +189,10 @@ Custom-text encryption: A and B publish x25519 public keys in `profiles`. On pai
 - iOS widget can't be compiled from Windows (needs macOS or EAS Build)
 - Local Gradle build needs JDK 17 + Android SDK (or use EAS Build cloud)
 - Background widget refresh when app is killed (needs silent push + native refresh handler)
-- Push registration UI (helper exists, opt-in entry point isn't surfaced yet)
 - Linked auth upgrade (currently anonymous-only)
 - Multi-connection / groups
 - Live Activities / Dynamic Island
+- Crash reporting, accessibility audit, MMKV at-rest encryption, human-readable pair codes, store metadata
 
 ---
 
