@@ -174,8 +174,10 @@ Custom-text encryption: A and B publish x25519 public keys in `profiles`. On pai
 - Pulses rate-limited (1 per 30s) with a light haptic on receive; sender's own realtime echo filtered out
 - Offline presence writes retry on app-foreground instead of silently dropping
 - Account deletion (two-tap, RPC verified end-to-end locally) + JSON data export via share sheet
+- Human-readable 6-char invite codes (verbal/manual-entry path) alongside the unguessable deep-link token; forced-pairing hole found and closed during this work (see `accept_invite_row` revokes)
+- Accessibility: reduced-motion support, screen-reader labels/roles/hints, WCAG-AA-verified palette contrast (`scripts/contrast-audit.mjs`)
 - Android prebuild succeeds — `widgetprovider_twin.xml` and AppWidgetProvider receiver land cleanly in the generated manifest
-- CI on GitHub Actions: type-check + Android prebuild validation per push/PR
+- CI on GitHub Actions: type-check + Android prebuild validation per push/PR (green)
 
 ### Verified via REST
 ```
