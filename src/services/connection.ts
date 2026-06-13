@@ -4,6 +4,7 @@ import type { PaletteId } from '@/domain/types';
 
 export type InviteRow = {
   token: string;
+  short_code: string | null;
   display_name: string | null;
   palette: PaletteId;
   expires_at: string;
@@ -39,19 +40,13 @@ export async function createInvite(
   palette: PaletteId,
   publicKey?: string,
 ): Promise<InviteRow> {
-  const userId = await currentUserId();
-  if (!userId) throw new Error('not signed in');
-  const row: Record<string, unknown> = {
-    from_user: userId,
-    display_name: displayName,
-    palette,
-  };
-  if (publicKey) row.public_key = publicKey;
-  const { data, error } = await supabase
-    .from('invites')
-    .insert(row)
-    .select('token, display_name, palette, expires_at')
-    .single();
+  // RPC generates a collision-free short code atomically and stamps
+  // from_user = auth.uid() server-side.
+  const { data, error } = await supabase.rpc('create_invite', {
+    p_display_name: displayName,
+    p_palette: palette,
+    p_public_key: publicKey ?? null,
+  });
   if (error || !data) throw error ?? new Error('invite creation failed');
   return data as InviteRow;
 }
@@ -59,8 +54,20 @@ export async function createInvite(
 export async function previewInvite(token: string): Promise<InviteRow | null> {
   const { data, error } = await supabase
     .from('invites')
-    .select('token, display_name, palette, expires_at')
+    .select('token, short_code, display_name, palette, expires_at')
     .eq('token', token)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as InviteRow | null) ?? null;
+}
+
+export async function previewInviteByCode(code: string): Promise<InviteRow | null> {
+  const normalized = code.trim().toUpperCase();
+  if (!normalized) return null;
+  const { data, error } = await supabase
+    .from('invites')
+    .select('token, short_code, display_name, palette, expires_at')
+    .eq('short_code', normalized)
     .maybeSingle();
   if (error) throw error;
   return (data as InviteRow | null) ?? null;
@@ -69,6 +76,14 @@ export async function previewInvite(token: string): Promise<InviteRow | null> {
 export async function acceptInvite(token: string): Promise<ConnectionRow> {
   const { data, error } = await supabase.rpc('accept_invite', { token });
   if (error || !data) throw error ?? new Error('accept_invite failed');
+  return data as ConnectionRow;
+}
+
+export async function acceptInviteByCode(code: string): Promise<ConnectionRow> {
+  const { data, error } = await supabase.rpc('accept_invite_by_code', {
+    p_code: code.trim().toUpperCase(),
+  });
+  if (error || !data) throw error ?? new Error('accept_invite_by_code failed');
   return data as ConnectionRow;
 }
 

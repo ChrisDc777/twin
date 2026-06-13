@@ -5,7 +5,7 @@ import { PulseGlow } from '@/components/twin/pulse-glow';
 import { StateBlob } from '@/components/twin/state-blob';
 import { ThemedText } from '@/components/themed-text';
 import { PALETTES } from '@/domain/palettes';
-import { VISIBILITY } from '@/domain/states';
+import { MOODS, VISIBILITY } from '@/domain/states';
 import { ageOpacity, effectivePresence, softRelative } from '@/lib/time';
 import type { PaletteId, PresenceState } from '@/domain/types';
 
@@ -37,6 +37,22 @@ export function TwinCard({
   const dimmed = presence.visibility === 'sleeping' || presence.visibility === 'hidden';
   const aged = !dimmed && presence.setAt > 0 ? ageOpacity(presence.setAt) : 1;
 
+  const interactive = !!(onPress || onLongPress);
+  const a11yLabel = [
+    who,
+    meta.label,
+    presence.mood ? MOODS[presence.mood].label : null,
+    presence.customText ? `note: ${presence.customText}` : null,
+    showStaleness && presence.setAt > 0 ? softRelative(presence.setAt) : null,
+  ]
+    .filter(Boolean)
+    .join(', ');
+  const a11yHint = onLongPress
+    ? 'Hold to send a quiet pulse'
+    : onPress
+      ? 'Opens your status to change it'
+      : undefined;
+
   return (
     <Pressable
       onPress={() => {
@@ -47,9 +63,15 @@ export function TwinCard({
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         onLongPress?.();
       }}
+      accessibilityRole={interactive ? 'button' : 'text'}
+      accessibilityLabel={a11yLabel}
+      accessibilityHint={a11yHint}
       style={styles.wrap}
     >
-      <View style={[styles.blobStack, { width: blobSize, height: blobSize }]}>
+      <View
+        style={[styles.blobStack, { width: blobSize, height: blobSize }]}
+        importantForAccessibility="no-hide-descendants"
+      >
         <PulseGlow trigger={pulseTrigger ?? null} color={p.accent} size={blobSize} />
         <View style={{ opacity: aged }}>
           <StateBlob

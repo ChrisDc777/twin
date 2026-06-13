@@ -191,7 +191,7 @@ export default function Settings() {
             type="small"
             style={{ color: p.textMuted, opacity: 0.5, textAlign: 'center' }}
           >
-            Twin · v0.2
+            Twin · v0.3
           </ThemedText>
         </View>
       </SafeAreaView>

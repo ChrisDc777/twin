@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   Easing,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withRepeat,
   withTiming,
@@ -22,16 +23,23 @@ type Props = {
 };
 
 export function StateBlob({ palette, mood, dimmed = false, size = 200 }: Props) {
+  const reduceMotion = useReducedMotion();
   const scale = useSharedValue(1);
   const opacity = useSharedValue(dimmed ? 0.4 : 1);
 
   useEffect(() => {
+    // Honor the OS "reduce motion" setting — the breathing animation is
+    // ambient delight, not information, so freezing it loses nothing.
+    if (reduceMotion) {
+      scale.value = 1;
+      return;
+    }
     scale.value = withRepeat(
       withTiming(1.04, { duration: 4200, easing: Easing.inOut(Easing.sin) }),
       -1,
       true,
     );
-  }, [scale]);
+  }, [scale, reduceMotion]);
 
   useEffect(() => {
     opacity.value = withTiming(dimmed ? 0.35 : 1, { duration: 600 });

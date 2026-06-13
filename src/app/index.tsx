@@ -88,7 +88,12 @@ export default function Home() {
               onPress={() => router.push('/state-picker')}
             />
             <View style={{ gap: 12, alignItems: 'center' }}>
-              <Pressable style={styles.ctaPrimary} onPress={() => router.push('/pair')}>
+              <Pressable
+                style={styles.ctaPrimary}
+                accessibilityRole="button"
+                accessibilityLabel="Invite your person"
+                onPress={() => router.push('/pair')}
+              >
                 <ThemedText style={{ color: p.accent }}>Invite your person →</ThemedText>
               </Pressable>
               {__DEV__ && !isSupabaseConfigured() ? (
@@ -102,7 +107,13 @@ export default function Home() {
           </View>
         )}
 
-        <Pressable style={styles.settings} onPress={() => router.push('/settings')} hitSlop={16}>
+        <Pressable
+          style={styles.settings}
+          onPress={() => router.push('/settings')}
+          hitSlop={16}
+          accessibilityRole="button"
+          accessibilityLabel="Settings"
+        >
           <ThemedText style={{ color: p.textMuted, fontSize: 22 }}>·</ThemedText>
         </Pressable>
       </SafeAreaView>
